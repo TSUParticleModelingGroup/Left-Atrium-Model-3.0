@@ -1,0 +1,75 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Recompile SVT after color/background debug changes",
+			"type": "shell",
+			"command": "cd TEST && ./compile_test.sh",
+			"group": "build"
+		},
+		{
+			"label": "Recompile SVT after shifting TestSphere nodes",
+			"type": "shell",
+			"command": "cd TEST && ./compile_test.sh",
+			"group": "build"
+		},
+		{
+			"label": "Recompile and run SVT for diagnostics",
+			"type": "shell",
+			"command": "cd TEST && ./compile_test.sh && ./bin/svt",
+			"group": "build"
+		},
+		{
+			"label": "Recompile and run SVT for diagnostics (fixed)",
+			"type": "shell",
+			"command": "cd TEST && ./compile_test.sh && ./bin/svt",
+			"group": "build"
+		},
+		{
+			"label": "Recompile and run SVT for diagnostics (final)",
+			"type": "shell",
+			"command": "cd TEST && ./compile_test.sh && ./bin/svt",
+			"group": "build"
+		},
+		{
+			"label": "Recompile and run SVT for diagnostics (final, fixed vars)",
+			"type": "shell",
+			"command": "cd TEST && ./compile_test.sh && ./bin/svt",
+			"group": "build"
+		},
+		{
+			"label": "Recompile and run SVT for diagnostics (final, correct placement)",
+			"type": "shell",
+			"command": "cd TEST && ./compile_test.sh && ./bin/svt",
+			"group": "build"
+		},
+		{
+			"label": "Recompile and run SVT for diagnostics",
+			"type": "shell",
+			"command": "./compile_test.sh && ./bin/SVT",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Run SVT for diagnostics after fixing header",
+			"type": "shell",
+			"command": "./bin/SVT",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Recompile and run SVT for diagnostics (final fix)",
+			"type": "shell",
+			"command": "./compile_test.sh && ./bin/SVT",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Recompile and run SVT for diagnostics (final, after brace fix)",
+			"type": "shell",
+			"command": "./compile_test.sh && ./bin/SVT",
+			"isBackground": false,
+			"group": "build"
+		}
+	]
+}
