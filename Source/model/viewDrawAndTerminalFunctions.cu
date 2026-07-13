@@ -76,20 +76,17 @@ void ShowIdentifiedNodesBox()
 {
 	ImGui::TextColored(ImVec4(1.0f, 0.5f, 1.0f, 1.0f), "Click on nodes to identify them");
 	ImGui::BeginChild("IdentifiedNodes", ImVec2(0, 120), true);
-	bool foundAny = false;
+	int k = 0;
 	for (int i = 0; i < NumberOfNodes; i++)
 	{
 		// if the node is colored magenta, it is identified. Magenta color: (1.0, 0.0, 1.0)
 		if (Node[i].isDrawNode && Node[i].color.x == 1.0f && Node[i].color.y == 0.0f && Node[i].color.z == 1.0f)
 		{
-			foundAny = true;
 			ImGui::Text("Node ID: %d", i);
+			k++;
 		}
 	}
-	if (!foundAny)
-	{
-		ImGui::TextDisabled("No nodes identified yet");
-	}
+	ImGui::Text("Number of Nodes identified = %d", k);
 	ImGui::EndChild();
 	if (ImGui::Button("Clear Identified Nodes"))
 	{
@@ -121,20 +118,17 @@ void ShowIdentifiedMusclesBox()
 {
 	ImGui::TextColored(ImVec4(0.3f, 0.3f, 1.0f, 1.0f), "Click on muscles to identify them");
 	ImGui::BeginChild("IdentifiedMuscles", ImVec2(0, 120), true);
-	bool foundAny = false;
+	int k = 0;
 	for (int i = 0; i < NumberOfMuscles; i++)
 	{
 		//if the muscle is colored blue, it is identified. Blue color: (0.0, 0.0, 0.7)
 		if (Muscle[i].color.x == 0.0f && Muscle[i].color.y == 0.0f && Muscle[i].color.z == 0.7f)
 		{
-			foundAny = true;
 			ImGui::Text("Muscle ID: %d | CV: %.3f | RP: %.3f", i, Muscle[i].conductionVelocity, Muscle[i].refractoryPeriod/300.0f);
+			k++;
 		}
 	}
-	if (!foundAny)
-	{
-		ImGui::TextDisabled("No muscles identified yet");
-	}
+	ImGui::Text("Number of Muscles identified = %d", k);
 	ImGui::EndChild();
 	if (ImGui::Button("Clear Identified Muscles"))
 	{
