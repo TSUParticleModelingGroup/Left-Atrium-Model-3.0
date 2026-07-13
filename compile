@@ -33,9 +33,8 @@ cd ../model
 nvcc -c ../third_party/imgui/imgui.cpp ../third_party/imgui/imgui_draw.cpp ../third_party/imgui/imgui_tables.cpp ../third_party/imgui/imgui_widgets.cpp
 nvcc -c ../third_party/imgui/imgui_impl_glfw.cpp ../third_party/imgui/imgui_impl_opengl3.cpp
 
-
+#header.cu setNodesAndMuscles.cu callBackFunctions.cu viewDrawAndTerminalFunctions.cu cudaFunctions.cu \
 nvcc SVT.cu ../third_party/glad.c\
-     header.cu setNodesAndMuscles.cu callBackFunctions.cu viewDrawAndTerminalFunctions.cu cudaFunctions.cu \
      imgui.o imgui_draw.o imgui_tables.o imgui_widgets.o imgui_impl_glfw.o imgui_impl_opengl3.o \
      -o svt \
      -lglfw -lGL -lGLU -lm -lX11 -lXrandr -lXinerama -lXcursor -lXi

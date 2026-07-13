@@ -19,10 +19,10 @@
 
 // Local include files
 #include "./header.h"
-#include "./setNodesAndMuscles.h"
-#include "./callBackFunctions.h"
-#include "./viewDrawAndTerminalFunctions.h"
-#include "./cudaFunctions.h"
+#include "./setNodesAndMuscles.cu"
+#include "./callBackFunctions.cu"
+#include "./viewDrawAndTerminalFunctions.cu"
+#include "./cudaFunctions.cu"
 
 /*
  This function is called by the openGL idle function. Hence this function is called every time openGL is not doing anything else,
@@ -247,15 +247,6 @@ void readIntermediateSimulationSetupParameters()
 		
 		getline(data,name,'=');
 		data >> DeadColor.z;
-		
-		getline(data,name,'=');
-		data >> BachmannColor.x;
-		
-		getline(data,name,'=');
-		data >> BachmannColor.y;
-		
-		getline(data,name,'=');
-		data >> BachmannColor.z;
 	}
 	else
 	{
@@ -364,17 +355,6 @@ void setup()
 	if(NodesMusclesFileOrPreviousRunsFile == 0)
 	{
 		readNodesAndMusclesFromBinaryFile();
-
-		/*
-		readNodesFromFile();
-		centerNodes();
-		checkNodes();
-		readPulseUpAndFrontNodesFromFile();
-		readBachmannBundleFromFile();
-		readAndConnectMusclesFromFile();
-		linkNodesToMuscles();
-		*/
-
 		findRadiusAndMassOfLeftAtrium();
 		setRemainingNodeAndMuscleAttributes();
 		for(int i = 0; i < NumberOfMuscles; i++)

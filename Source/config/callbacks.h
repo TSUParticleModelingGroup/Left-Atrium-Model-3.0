@@ -43,7 +43,6 @@ void reshape(GLFWwindow* window, int width, int height)
 	XWindowSize = width;
 	YWindowSize = height;
 
-
 	// if not recording, set the viewport to match the new window size
 	glViewport(0, 0, width, height); // Set the viewport size to match the window size
 

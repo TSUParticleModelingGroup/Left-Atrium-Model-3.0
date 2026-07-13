@@ -31,7 +31,7 @@ Both should be floats.
 --BaseMuscleConductionVelocity = 0.3;
 --MuscleConductionVelocitySTD = 0.0;
 
-This is a multiplier that adjusts the conduction velocity through a Bachmann's Bundle muscle. [I3]
+This is a multiplier that adjusts the conduction velocity through a Bachmann's Bundle muscle a good value is 2.97. [I3]
 
 -- BachmannsBundleMultiplier = 2.97; 
 
@@ -92,13 +92,6 @@ All three should be floats.
 --DeadRed = 1.0;
 --DeadGreen = 1.0;
 --DeadBlue = 1.0;
-
-Bachmann's bundle Node and Muscle: red, green, blue.
-All three should be floats.
-
---BachmannRed = 0.0;
---BachmannGreen = 0.2;
---BachmannBlue = 1.0;
 
 References:
 I1) LA refractory Period is around 289 ms from this paper.

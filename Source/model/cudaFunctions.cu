@@ -15,10 +15,6 @@
  void copyNodesToGPU();
 */
 
-#include "cudaFunctions.h"
-
-
-
 /*
  This CUDA function tries to turn on every muscle that is connected to a node.
  It loops through all the muscle connected to the node with index = nodeToTurnOn.

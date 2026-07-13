@@ -77,12 +77,12 @@ const int MOUSE_MODE_PULSE_NODE = 100;
 const int MOUSE_MODE_BACK_TOP = 101;
 
 
-const float4 COLOR_STANDARD = {1.0f, 0.0f, 0.0f, 0.0f}; // Mostly white for standard nodes (to reduce contrast)
+const float4 COLOR_STANDARD = {1.0f, 0.0f, 0.0f, 0.0f}; // Red for standard nodes (to reduce contrast)
 const float4 COLOR_BACHMANNS_BUNDLE= {0.2f, 0.2f, 1.0f, 0.0f}; // Blue for Bachmann's Bundle nodes and muscles by default.
-const float4 COLOR_APPENDAGE = {0.0f, 0.7f, 0.0f, 0.0f}; // Green for left atrial appendage nodes and muscles by default.
+const float4 COLOR_APPENDAGE = {1.0f, 0.8f, 0.3f, 0.0f}; // Orange for left atrial appendage nodes and muscles by default.
 const float4 COLOR_SCAR_TISSUE = {0.6f, 0.6f, 0.6f, 0.0f}; // Gray for scar tissue nodes and muscles by default.
-const float4 COLOR_PULMONARY_VEINS = {1.0f, 0.5f, 0.0f, 0.0f}; // Orange for pulmonary veins nodes and muscles by default.
-const float4 COLOR_MITRAL_VALVE = {1.0f, 0.0f, 1.0f, 0.0f}; // Magenta for mitral valve nodes and muscles by default.
+const float4 COLOR_PULMONARY_VEINS = {1.0f, 0.4f, 0.7f, 0.0f}; // Pink for pulmonary veins nodes and muscles by default.
+const float4 COLOR_MITRAL_VALVE = {0.5f, 0.0f, 0.5f, 0.0f}; // Purple for mitral valve nodes and muscles by default.
 
 // Simulation mode defines. I am fairly sure these will not be needed but will be useful for the main program.
 const int SIM_MODE_STANDARD = 0;

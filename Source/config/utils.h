@@ -46,7 +46,7 @@ void readBasicSimulationSetupParameters()
 	ifstream data;
 	string name;
 	
-	data.open("../BasicSimulationSetup");
+	data.open("../ConfigSimulationSetup");
 	if(data.is_open() == 1)
 	{
 		getline(data,name,'=');

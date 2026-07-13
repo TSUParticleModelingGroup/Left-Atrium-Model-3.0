@@ -1,18 +1,10 @@
 /*
- This file contains all the functions that read in the nodes and muscles, links them together, 
- sets up the node and muscle attributes, and assigns them their values in our units. 
- Additionally it sets any remaining run parameters to get started in the setRemainingParameters() 
- function.
+ This file contains all the functions that read in and sets the nodes and muscles values in our units. 
+ Additionally it sets any remaining run parameters to get started in the setRemainingParameters() function.
  
  The functions are listed below in the order they appear.
  
- void readNodesFromFile();
- void centerNodes();
- void checkNodes();
- void readPulseUpAndFrontNodesFromFile();
- void readBachmannBundleFromFile();
- void readAndConnectMusclesFromFile();
- void linkNodesToMuscles();
+ void readNodesAndMusclesFromBinaryFile();
  double croppedRandomNumber(double, double, double);
  void findRadiusAndMassOfLeftAtrium();
  void setRemainingNodeAndMuscleAttributes();
@@ -20,396 +12,7 @@
  void setRemainingParameters();
  void checkMuscle(int);
 */
-
-#include "setNodesAndMuscles.h"
-
 		
-/*
- This function 
- 1. Opens the node file.
- 2. Finds the number of nodes.
- 3. Allocates memory to hold the nodes on the CPU and the GPU
- 4. Sets all the nodes to their default or start values.
- 5. Reads and assigns the node positions from the node file.
- 8. Sets the pulse node.
-*/
-void readNodesFromFile()
-{	
-	FILE *inFile;
-	float x, y, z;
-	int id;
-	char fileName[256];
-	
-	// Generating the name of the file that holds the nodes.
-	char directory[] = "./NodesMuscles/";
-	strcpy(fileName, "");
-	strcat(fileName, directory);
-	strcat(fileName, NodesMusclesFileName);
-	strcat(fileName, "/Nodes");
-	
-	// 1. Opening the node file.
-	inFile = fopen(fileName,"rb");
-	if(inFile == NULL)
-	{
-		printf("\n\n Can't open Nodes file %s.", fileName);
-		printf("\n The simulation has been terminated.\n\n");
-		exit(0);
-	}
-	
-	// 2. Reading the header information.
-	fscanf(inFile, "%d", &NumberOfNodes);
-	printf("\n NumberOfNodes = %d", NumberOfNodes);
-	
-	// 3. Allocating memory for the CPU and GPU nodes. 
-	cudaHostAlloc((void**)&Node, NumberOfNodes*sizeof(nodeAttributesStructure), cudaHostAllocDefault); // Making page locked memory on the CPU.
-	cudaErrorCheck(__FILE__, __LINE__);
-	
-	cudaMalloc((void**)&NodeGPU, NumberOfNodes*sizeof(nodeAttributesStructure));
-	cudaErrorCheck(__FILE__, __LINE__);
-	
-	// 4. Setting all nodes to zero or their default settings; 
-	for(int i = 0; i < NumberOfNodes; i++)
-	{
-		Node[i].position.x = 0.0;
-		Node[i].position.y = 0.0;
-		Node[i].position.z = 0.0;
-		Node[i].position.w = 0.0;
-		
-		Node[i].velocity.x = 0.0;
-		Node[i].velocity.y = 0.0;
-		Node[i].velocity.z = 0.0;
-		Node[i].velocity.w = 0.0;
-		
-		Node[i].force.x = 0.0;
-		Node[i].force.y = 0.0;
-		Node[i].force.z = 0.0;
-		Node[i].force.w = 0.0;
-		
-		Node[i].mass = 0.0;
-		Node[i].area = 0.0;
-		
-		Node[i].isBeatNode = false; // Setting all nodes to start out as not being a beat node.
-		Node[i].beatPeriod = -1.0; // Setting bogus number so it will throw a flag later if something happens later on.
-		Node[i].beatTimer = -1.0; // Setting bogus number so it will throw a flag later if something happens later on.
-		Node[i].isFiring = false; // Setting the node fire button to false so it will not fire as soon as it is turned on.
-		Node[i].isAblated = false; // Setting all nodes to not ablated.
-		Node[i].isDrawNode = false; // This flag will allow you to draw certain nodes even when the draw nodes flag is set to off. Set it to off to start with.
-		
-		// Setting all node colors to not ablated (green)
-		Node[i].color.x = 0.0;
-		Node[i].color.y = 1.0;
-		Node[i].color.z = 0.0;
-		Node[i].color.w = 0.0;
-		
-		for(int j = 0; j < MUSCLES_PER_NODE; j++)
-		{
-			Node[i].muscle[j] = -1; // -1 sets the muscle to not used.
-		}
-	}
-	
-	// 5. Reading in the nodes positions.
-	for(int i = 0; i < NumberOfNodes; i++)
-	{
-		fscanf(inFile, "%d %f %f %f", &id, &x, &y, &z);
-		
-		Node[id].position.x = x;
-		Node[id].position.y = y;
-		Node[id].position.z = z;
-	}
-	
-	fclose(inFile);
-	printf("\n Nodes positions have been read in.\n");
-}
-
-/*
- This function 
- 1. Finds the center of the LA
- 2. Places the center of the LA at (0,0,0).
-*/
-void centerNodes()
-{
-        // 1. Finding center on LA
-	float4 centerOfObject;
-	centerOfObject.x = 0.0;
-	centerOfObject.y = 0.0;
-	centerOfObject.z = 0.0;
-	centerOfObject.w = (double)NumberOfNodes;
-	for(int i = 0; i < NumberOfNodes; i++)
-	{
-		 centerOfObject.x += Node[i].position.x;
-		 centerOfObject.y += Node[i].position.y;
-		 centerOfObject.z += Node[i].position.z;
-	}
-	centerOfObject.x /= centerOfObject.w;
-	centerOfObject.y /= centerOfObject.w;
-	centerOfObject.z /= centerOfObject.w;
-	
-	// 2. Centering the LA at (0,0,0)
-	for(int i = 0; i < NumberOfNodes; i++)
-	{
-		Node[i].position.x -= centerOfObject.x;
-		Node[i].position.y -= centerOfObject.y;
-		Node[i].position.z -= centerOfObject.z;
-	}
-	printf("\n Nodes have been centered.\n");
-}
-
-/* This function checks to see if two nodes are too close relative to all the other nodes 
-   in the simulations. 
-   1: This for loop finds all the closest neighbor distances and then it calculates the average of this value. 
-      This get a sense of how close nodes are in general. If you have more nodes they are going to be 
-      closer together, this number just gets you a scale to compare to.
-   2: This for loop checks to see if two nodes are closer than a cutoffDivider times smaller than the 
-      average minimal distance. If it is, the nodes are printed out with their separation and a flag is set.
-      Adjust the cutoffDivider for tighter and looser tolerances.
-   3: If the flag is set, the simulation is terminated so the user can correct the node file that contains the faulty nodes.
-*/
-void checkNodes()
-{
-	float dx, dy, dz, d;
-	float averageMinSeparation, minSeparation;
-	bool flag;
-	float cutoffDivider = 100.0;
-	float cutoff;
-	
-	// 1: Finding average closest neighbor distance.
-	averageMinSeparation = 0;
-	for(int i = 0; i < NumberOfNodes; i++)
-	{
-		minSeparation = FLOATMAX; // Setting min as a huge value just to get it started.
-		for(int j = 0; j < NumberOfNodes; j++)
-		{
-			if(i != j)
-			{
-				dx = Node[i].position.x - Node[j].position.x;
-				dy = Node[i].position.y - Node[j].position.y;
-				dz = Node[i].position.z - Node[j].position.z;
-				d = sqrt(dx*dx + dy*dy + dz*dz);
-				if(d < minSeparation) 
-				{
-					minSeparation = d;
-				}
-			}
-		}
-		averageMinSeparation += minSeparation;
-	}
-	averageMinSeparation = averageMinSeparation/NumberOfNodes;
-	
-	// 2: Checking to see if nodes are too close together.
-	cutoff = averageMinSeparation/cutoffDivider;
-	flag = false;
-	for(int i = 0; i < NumberOfNodes; i++)
-	{
-		for(int j = 0; j < NumberOfNodes; j++)
-		{
-			if(i != j)
-			{
-				dx = Node[i].position.x - Node[j].position.x;
-				dy = Node[i].position.y - Node[j].position.y;
-				dz = Node[i].position.z - Node[j].position.z;
-				d = sqrt(dx*dx + dy*dy + dz*dz);
-				if(d < cutoff)
-				{
-					printf("\n Nodes %d and %d are too close. Their separation is %f", i, j, d);
-					flag = true;
-				}
-			}
-		}
-	}
-	
-	// 3: Terminating the simulation if nodes were flagged and this switch is on.
-	if(flag == true)
-	{
-		printf("\n\n The average nearest separation for all the nodes is %f.", averageMinSeparation);
-		printf("\n The cutoff separation was %f.", cutoff);
-		printf("\n The simulation has been terminated.\n\n");
-		exit(0);
-	}
-	
-	printf("\n Nodes have been checked for minimal separation.\n");
-}
-
-/*
- This function 
- 1. Opens the PulseNodeUpNodeFrontNode file.
- 2. Then reads in and sets the globals: PulsePointNode, UpNode, and FrontNode.
-*/
-void readPulseUpAndFrontNodesFromFile()
-{	
-	FILE *inFile;
-	char fileName[256];
-	
-	// Generating the name of the file that holds the nodes.
-	char directory[] = "./NodesMuscles/";
-	strcpy(fileName, "");
-	strcat(fileName, directory);
-	strcat(fileName, NodesMusclesFileName);
-	strcat(fileName, "/PulseNodeUpNodeFrontNode");
-	
-	// 1. Opening the node file.
-	inFile = fopen(fileName,"rb");
-	if(inFile == NULL)
-	{
-		printf("\n\n Can't open Nodes file %s.", fileName);
-		printf("\n The simulation has been terminated.\n\n");
-		exit(0);
-	}
-	
-	// 2. Reading the header information.
-	fscanf(inFile, "%d", &PulsePointNode);
-	printf("\n PulsePointNode = %d", PulsePointNode);
-	fscanf(inFile, "%d", &UpNode);
-	printf("\n UpNode = %d", UpNode);
-	fscanf(inFile, "%d", &FrontNode);
-	printf("\n FrontNode = %d", FrontNode);
-	printf("\n");
-	
-	fclose(inFile);
-	printf("\n PulsePointNode, UpNode, and FrontNode have been read in.\n");
-}
-
-/*
- This function 
- 1. Opens the Bachmann's Bundle (BB) file.
- 2. Reads the number of nodes in the BB.
- 3. Allocating memory on both CPU hold BB.
- 4. Reads the BB nodes.
- */
-void readBachmannBundleFromFile()
-{	
-	FILE *inFile;
-	int id;
-	char fileName[256];
-	
-	// Generating the name of the file that holds the nodes.
-	char directory[] = "./NodesMuscles/";
-	strcpy(fileName, "");
-	strcat(fileName, directory);
-	strcat(fileName, NodesMusclesFileName);
-	strcat(fileName, "/BachmannsBundle");
-	
-	// 1. Opening the file.
-	inFile = fopen(fileName,"rb");
-	if(inFile == NULL)
-	{
-		printf("\n\n Can't open Bachmann's Bundle file.");
-		printf("\n The simulation has been terminated.\n\n");
-		exit(0);
-	}
-	
-	// 2. Reading the header information.
-	fscanf(inFile, "%d", &NumberOfNodesInBachmannsBundle);
-	printf("\n NumberOfNodesInBachmannsBundle = %d", NumberOfNodesInBachmannsBundle);
-	
-	// 3. Allocating memory for the Bachmann's Bundle nodes.
-	BachmannsBundle = (int*)malloc(NumberOfNodesInBachmannsBundle*sizeof(int));
-	
-	// 4. Reading the nodes that extend from the pulse node to create Bachmann's Bundle.
-	for(int i = 0; i < NumberOfNodesInBachmannsBundle; i++)
-	{
-		fscanf(inFile, "%d ", &id);
-		BachmannsBundle[i] = id;
-	}
-	
-	fclose(inFile);
-	printf("\n Bachmann's Bundle Nodes have been read in.\n");
-}
-
-/*
- This function 
- 1. Opens the muscles file.
- 2. Reads the number of muscles.
- 3. Allocates memory to hold the muscles on the CPU and the GPU
- 4. Sets all the muscles to their default or start values.
- 5. Reads and connects the muscle to the two nodes it is connected to.
-*/
-void readAndConnectMusclesFromFile()
-{	
-	FILE *inFile;
-	int id, idNode1, idNode2;
-	char fileName[256];
-    
-	// Generating the name of the file that holds the muscles.
-	char directory[] = "./NodesMuscles/";
-	strcpy(fileName, "");
-	strcat(fileName, directory);
-	strcat(fileName, NodesMusclesFileName);
-	strcat(fileName, "/Muscles");
-	
-	// 1. Opening the muscle file.
-	inFile = fopen(fileName,"rb");
-	if (inFile == NULL)
-	{
-		printf("\n\n Can't open Muscles file %s.", fileName);
-		printf("\n The simulation has been terminated.\n\n");
-		exit(0);
-	}
-	
-	// 2. Reading the header information.
-	fscanf(inFile, "%d", &NumberOfMuscles);
-	printf("\n NumberOfMuscles = %d", NumberOfMuscles);
-	
-	// 3. Allocating memory for the CPU and GPU muscles. 
-	//Muscle = (muscleAttributesStructure*)malloc(NumberOfMuscles*sizeof(muscleAttributesStructure));
-	cudaHostAlloc(&Muscle, NumberOfMuscles*sizeof(muscleAttributesStructure), cudaHostAllocDefault); // Making page locked memory on the CPU.
-	cudaErrorCheck(__FILE__, __LINE__);
-	
-	cudaMalloc((void**)&MuscleGPU, NumberOfMuscles*sizeof(muscleAttributesStructure));
-	cudaErrorCheck(__FILE__, __LINE__);
-
-	// 4. Setting all muscles to their default settings; 
-	for(int i = 0; i < NumberOfMuscles; i++)
-	{
-		Muscle[i].nodeA = -1;
-		Muscle[i].nodeB = -1;
-		Muscle[i].apNode = -1;
-		Muscle[i].isOn = false;
-		Muscle[i].isEnabled = true;
-		Muscle[i].timer = -1.0;
-		Muscle[i].mass = -1.0;
-		Muscle[i].naturalLength = -1.0;
-		Muscle[i].relaxedStrength = -1.0;
-		Muscle[i].compressionStopFraction = -1.0;
-		Muscle[i].conductionVelocity = -1.0;
-		Muscle[i].conductionDuration = -1.0;
-		Muscle[i].refractoryPeriod = -1.0;
-		Muscle[i].absoluteRefractoryPeriodFraction = -1.0;
-		Muscle[i].contractionStrength = -1.0;
-		
-		// Setting all muscle colors to ready (red)
-		Muscle[i].color.x = 1.0;
-		Muscle[i].color.y = 0.0;
-		Muscle[i].color.z = 0.0;
-		Muscle[i].color.w = 0.0;
-	}
-	
-	// 5. Reading in from the blender file what two nodes the muscle connects.
-	for(int i = 0; i < NumberOfMuscles; i++)
-	{
-		fscanf(inFile, "%d", &id);
-		fscanf(inFile, "%d", &idNode1);
-		fscanf(inFile, "%d", &idNode2);
-		
-		if(NumberOfMuscles <= id)
-		{
-			printf("\n\n You are trying to create a muscle that is out of bounds.");
-			printf("\n The simulation has been terminated.\n\n");
-			exit(0);
-		}
-		if(NumberOfNodes <= idNode1 || NumberOfNodes <= idNode2)
-		{
-			printf("\n\n You are trying to connect to a node that is out of bounds.");
-			printf("\n The simulation has been terminated.\n\n");
-			exit(0);
-		}
-		Muscle[id].nodeA = idNode1;
-		Muscle[id].nodeB = idNode2;
-	}
-	
-	fclose(inFile);
-	printf("\n Blender generated muscles have been created.\n");
-}
-
 /*
  This function reads node and muscle data from a config-exported binary file.
  It appends the binary values into the existing model structs by filling fields
@@ -423,7 +26,7 @@ void readNodesAndMusclesFromBinaryFile()
 	struct stat fileStat;
 
 	// Build the expected input path under the binary folder.
-	strcpy(fileName, "./NodesMuscles/bin/");
+	strcpy(fileName, "./ModelNodesMuscles/");
 	strcat(fileName, NodesMusclesFileName);
 
 	// Enforce .bin extension for early detection of invalid file names and to avoid confusion with raw files
@@ -478,45 +81,16 @@ void readNodesAndMusclesFromBinaryFile()
 	printf("\n UpNode = %d", UpNode);
 	printf("\n FrontNode = %d", FrontNode);
 
-	// Reset cached binary node colors so we can store the colors from this file.
-	if(BinaryNodeColors != NULL)
-	{
-		free(BinaryNodeColors);
-		BinaryNodeColors = NULL;
-	}
-	BinaryNodeColors = (float4*)malloc(NumberOfNodes*sizeof(float4));
-	if(BinaryNodeColors == NULL)
-	{
-		printf("\n\n Could not allocate node binary color storage.");
-		printf("\n The simulation has been terminated.\n\n");
-		exit(0);
-	}
-
-	// Reset cached binary muscle colors so we can store the colors from this file.
-	if(BinaryMuscleColors != NULL)
-	{
-		free(BinaryMuscleColors);
-		BinaryMuscleColors = NULL;
-	}
-	BinaryMuscleColors = (float4*)malloc(NumberOfMuscles*sizeof(float4));
-	if(BinaryMuscleColors == NULL)
-	{
-		printf("\n\n Could not allocate muscle binary color storage.");
-		printf("\n The simulation has been terminated.\n\n");
-		exit(0);
-	}
-
-	// Start fresh; this counter is rebuilt while nodes are read.
-	NumberOfNodesInBachmannsBundle = 0;
-
 	// Allocate and initialize node structs with model defaults.
 	cudaHostAlloc((void**)&Node, NumberOfNodes*sizeof(nodeAttributesStructure), cudaHostAllocDefault);
 	cudaErrorCheck(__FILE__, __LINE__);
 	cudaMalloc((void**)&NodeGPU, NumberOfNodes*sizeof(nodeAttributesStructure));
 	cudaErrorCheck(__FILE__, __LINE__);
 
+	// Zeroing out and intializing the nodes for safty before they are read in.
 	for(int i = 0; i < NumberOfNodes; i++)
 	{
+		Node[i].type = -1;
 		Node[i].position.x = 0.0;
 		Node[i].position.y = 0.0;
 		Node[i].position.z = 0.0;
@@ -555,12 +129,10 @@ void readNodesAndMusclesFromBinaryFile()
 	// Read nodes in exact order used by config saveBinary().
 	for(int i = 0; i < NumberOfNodes; i++)
 	{
-		int nodeType;
-		fread(&nodeType, sizeof(int), 1, inFile);
-		(void)nodeType;
+		fread(&Node[i].type, sizeof(int), 1, inFile);
 		fread(&Node[i].position, sizeof(float4), 1, inFile);
 		fread(Node[i].muscle, sizeof(int), MUSCLES_PER_NODE, inFile);
-		fread(&BinaryNodeColors[i], sizeof(float4), 1, inFile);
+		fread(&Node[i].color, sizeof(float4), 1, inFile);
 	}
 
 	// Allocate and initialize muscle structs with model defaults.
@@ -569,8 +141,10 @@ void readNodesAndMusclesFromBinaryFile()
 	cudaMalloc((void**)&MuscleGPU, NumberOfMuscles*sizeof(muscleAttributesStructure));
 	cudaErrorCheck(__FILE__, __LINE__);
 
+	// Intializing the muscles for safty before they are read in.
 	for(int i = 0; i < NumberOfMuscles; i++)
 	{
+		Muscle[i].type = -1;
 		Muscle[i].nodeA = -1;
 		Muscle[i].nodeB = -1;
 		Muscle[i].apNode = -1;
@@ -596,48 +170,16 @@ void readNodesAndMusclesFromBinaryFile()
 	// Read muscles in exact order used by config saveBinary().
 	for(int i = 0; i < NumberOfMuscles; i++)
 	{
-		int muscleType;
-		fread(&muscleType, sizeof(int), 1, inFile);
-		(void)muscleType;
+		fread(&Muscle[i].type, sizeof(int), 1, inFile);
 		fread(&Muscle[i].nodeA, sizeof(int), 1, inFile);
 		fread(&Muscle[i].nodeB, sizeof(int), 1, inFile);
 		fread(&Muscle[i].naturalLength, sizeof(float), 1, inFile);
-		fread(&BinaryMuscleColors[i], sizeof(float4), 1, inFile);
+		fread(&Muscle[i].color, sizeof(float4), 1, inFile);
 	}
 
 	//close file and print success message.
 	fclose(inFile);
 	printf("\n Binary file %s has been read in.\n", fileName);
-}
-
-/*
- This function loads each node structure with all the muscles it is connected to.
-*/
-void linkNodesToMuscles()
-{	
-	int k;
-	// Each node will have a list of the muscles it is attached to.
-	for(int i = 0; i < NumberOfNodes; i++)
-	{
-		k = 0;
-		for(int j = 0; j < NumberOfMuscles; j++)
-		{
-			if(Muscle[j].nodeA == i || Muscle[j].nodeB == i) // Checking to see if either end of the muscle is attached to node i.
-			{
-				if(MUSCLES_PER_NODE < k) // Making sure we do not go out of bounds.
-				{
-					printf("\n\n Number of muscles connected to node %d is larger than the allowed number of", i);
-					printf("\n muscles connected to a single node.");
-					printf("\n If this is not a mistake increase MUSCLES_PER_NODE in the header.h file.");
-					printf("\n The simulation has been terminated.\n\n");
-					exit(0);
-				}
-				Node[i].muscle[k] = j;
-				k++;
-			}
-		}
-	}
-	printf("\n Nodes have been linked to muscles. \n");
 }
 
 /*
@@ -701,8 +243,7 @@ void findRadiusAndMassOfLeftAtrium()
 }
 
 /*
- In this function, we set the remaining value of the nodes and muscle which were not already 
- set in the setNodesFromBlenderFile(), the setMusclesFromBlenderFile(), and the linkNodesToMuscles() functions.
+ In this function, we set the remaining value of the nodes and muscles.
  1: Checking to make sure LA radius and mass are set before we use them to set Node and Muscle attributes.
  2: Setting the pulse point node.
  3: Then, we find the length of each individual muscle and sum these up to find the total length of all muscles that represent
@@ -843,75 +384,82 @@ void setRemainingNodeAndMuscleAttributes()
 		Muscle[i].compressionStopFraction = MuscleCompressionStopFraction + croppedRandomNumber(stddev, left, right);
 	}
 	
-	// 7: Setting all the atributes of BB.
-	// !! Make sure this loop is after the basic muscle loop because all values are created as a multiple of those values.
-	int id, id2;
-	for(int i = -1; i < NumberOfNodesInBachmannsBundle; i++)
-	{	
-	        // a: Coloring the nodes. 
-	        //    The pulse point node is technically the first node in BB but it has other functions so it not an index in the BB vector.
-	        //    But it is colored the same.
-		if(i == -1)
+	
+	int typeLA = 0;
+	int typeBB = 1;
+	int typeLAA = 2;
+	int typeScar = 3;
+	int typePV = 4;
+	int typeMV = 5;
+	for(int i = 0; i < NumberOfNodes; i++)
+	{
+		if(Node[i].type == typeLA)
 		{
-			id = PulsePointNode;
-			Node[id].color.x = BachmannColor.x;
-			Node[id].color.y = BachmannColor.y;
-			Node[id].color.z = BachmannColor.z;
-			Node[id].isDrawNode = false; // The pulse node is always drawn as a sphere so no need to also draw it as a point.
+			//LA.
+		}
+		else if(Node[i].type == typeBB)
+		{
+			Node[i].isDrawNode = true;
+		}
+		else if(Node[i].type == typeLAA)
+		{
+			Node[i].isDrawNode = true;
+		}
+		else if(Node[i].type == typeScar)
+		{
+			Node[i].isAblated = true;
+			Node[i].isDrawNode = true;
+		}
+		else if(Node[i].type == typePV)
+		{
+			Node[i].isDrawNode = true;
+		}
+		else if(Node[i].type == typeMV)
+		{
+			Node[i].isDrawNode = true;
+		}
+	}
+	
+	for(int i = 0; i < NumberOfMuscles; i++)
+	{
+		if(Muscle[i].type == typeLA)
+		{
+			//LA do nothing.
+		}
+		else if(Muscle[i].type == typeBB)
+		{
+			Muscle[i].conductionDuration /= BachmannsBundleMultiplier;
+		}
+		else if(Muscle[i].type == typeLAA)
+		{
+			//
+		}
+		else if(Muscle[i].type == typeScar)
+		{
+			//
+		}
+		else if(Muscle[i].type == typePV)
+		{
+			//
+		}
+		else if(Muscle[i].type == typeMV)
+		{
+			//
+		}
+	}
+	
+	for(int i = 0; i < NumberOfMuscles; i++)
+	{
+		if(Muscle[i].type == typeLAA)
+		{
+			// Adjust speed on LAA vector
 		}
 		else
 		{
-			id = BachmannsBundle[i];
-			Node[id].color.x = BachmannColor.x;
-			Node[id].color.y = BachmannColor.y;
-			Node[id].color.z = BachmannColor.z;
-			Node[id].isDrawNode = true;
-		}
-		
-		// b: Adjusting the values that a muscle connected to BB nodes will have.
-		for(int k = 0; k < MUSCLES_PER_NODE; k++)
-		{
-			id2 = Node[id].muscle[k];
-			// If a node is connected to a muscle it will have a positive number. 
-			// If it is -1 it means you are past the number of muscle that node is connected to.
-			if(id2 != -1) 
-			{
-				for(int j = i+1; j < NumberOfNodesInBachmannsBundle; j++)
-				{
-					for(int l = 0; l < MUSCLES_PER_NODE; l++)
-					{
-						if(Node[BachmannsBundle[j]].muscle[l] == id2)
-						{
-							Muscle[id2].color.x = BachmannColor.x;
-							Muscle[id2].color.y = BachmannColor.y;
-							Muscle[id2].color.z = BachmannColor.z;
-							Muscle[id2].conductionDuration /= BachmannsBundleMultiplier;
-						}
-					}
-				
-				}
-			}
+			// Adjust speed on LA vector
 		}
 	}
-	
-	// 8: Setting all the atributes of the LAA.
-	// !! Make sure this loop is after the basic muscle loop because all values are created as a multiple of those values.
-	/*
-	for(int i = 0; i < NumberOfNodesInLAA; i++)
-	{
-	
-	}
-	*/
-	
-	// 9: Setting all the atributes of the PV.
-	// !! Make sure this loop is after the basic muscle loop because all values are created as a multiple of those values.
-	/*
-	for(int i = 0; i < NumberOfPVNodes; i++)
-	{
-	
-	}
-	*/
-	
+
 	printf("\n All node and muscle attributes have been set.\n");
 }
 
@@ -965,11 +513,6 @@ void getNodesandMusclesFromPreviousRun()
         cudaErrorCheck(__FILE__, __LINE__);
         fread(Muscle, sizeof(muscleAttributesStructure), NumberOfMuscles, inFile);
 
-        fread(&NumberOfNodesInBachmannsBundle, sizeof(int), 1, inFile);
-        // Allocating memory for the Bachmann's Bundle nodes.
-        BachmannsBundle = (int*)malloc(NumberOfNodesInBachmannsBundle*sizeof(int));
-        fread(BachmannsBundle, sizeof(int), NumberOfNodesInBachmannsBundle, inFile);
-  	
   	// To keep the contraction state what was readin from the BasicSimulationSetup file not what the state was
   	// when the simulation was saved we save it in a temp, overwrite it then restore it.
         fread(&Simulation, sizeof(Simulation), 1, inFile);

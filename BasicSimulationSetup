@@ -40,7 +40,7 @@ Sphere136k
 
 Place the Nodes and Muscle file you would like to run here.
 
---InputFileName =  3DIdealLAtrium2.3K_5-6-2026_10.40.26.bin
+--InputFileName =  IdealLeftAtrium2.3K_BMW.bin
 
 Name of previous run files that were stored in GitHub.
 test

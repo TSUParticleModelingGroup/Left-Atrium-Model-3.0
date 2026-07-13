@@ -3,8 +3,6 @@
  This file contains all the ways a user can interact (Mouse and Terminal) with a running simulation.
 */
 
-#include "callBackFunctions.h"
-
 // Map the shared preset selection to the export resolution used by both video and screenshots.
 static void getQualityPresetDimensions(int preset, int& targetWidth, int& targetHeight)
 {
@@ -450,10 +448,7 @@ void saveSettings()
         	
               fwrite(&NumberOfMuscles, sizeof(int), 1, settingFile);
               fwrite(Muscle, sizeof(muscleAttributesStructure), NumberOfMuscles, settingFile);
-        	
-              fwrite(&NumberOfNodesInBachmannsBundle, sizeof(int), 1, settingFile);
-              fwrite(BachmannsBundle, sizeof(int), NumberOfNodesInBachmannsBundle, settingFile);
-        	
+        
               fwrite(&Simulation, sizeof(Simulation), 1, settingFile);
         	
               fwrite(&PulsePointNode, sizeof(int), 1, settingFile);
@@ -1131,7 +1126,7 @@ void KeyPressed(GLFWwindow* window, int key, int scancode, int action, int mods)
 			{
 				Simulation.isPaused = true;
 				// Reapply section colors that were saved in the loaded binary file.
-				showMuscleTypes();
+				//showMuscleTypes();
 				// Refresh the scene right away so the color change is visible immediately.
 				drawPicture();
 			}

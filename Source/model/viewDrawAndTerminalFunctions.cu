@@ -28,11 +28,7 @@
  void createGUI();
 */
 
-#include "viewDrawAndTerminalFunctions.h"
-#include "callBackFunctions.h"
-#include "cudaFunctions.h"
-#include "setNodesAndMuscles.h"
-
+/*
 void showMuscleTypes()
 {
 	// If the binary file included node section colors, apply them back onto visible tissue nodes.
@@ -61,7 +57,7 @@ void showMuscleTypes()
 
 	copyNodesMusclesToGPU();
 }
-
+*/
 
 
 // Helper function to show a tooltip in ImGui
@@ -1357,7 +1353,7 @@ void createGUI()
 		{
 			Simulation.isPaused = true;
 			// Apply saved section colors from the loaded binary data.
-			showMuscleTypes();
+			//showMuscleTypes();
 			// Redraw immediately so the section colors appear as soon as the button is pressed.
 			drawPicture();
 		}
